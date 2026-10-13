@@ -1,0 +1,12 @@
+/*
+ * Utilitários.
+ *
+ * `.overline`: no projeto original a classe `overline` (usada nos rótulos em
+ * caixa-alta verde, ex.: "Recomendação de colheita") coincidia com o utilitário
+ * `overline` do Tailwind, que acrescentava uma linha acima do texto. Para manter
+ * o visual idêntico, o efeito foi preservado aqui. Se a linha não for desejada,
+ * basta remover esta regra.
+ */
+@layer utilities {
+  .overline { text-decoration-line: overline; }
+}

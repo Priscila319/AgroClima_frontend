@@ -1,0 +1,31 @@
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+
+# Java / Maven
+**/target/
+**/.mvn/wrapper/maven-wrapper.jar
+
+# Python
+**/.venv/
+**/venv/
+**/__pycache__/
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+*.py[cod]
+
+# Frontend tooling and generated files
+node_modules/
+dist/
+coverage/
+
+# IDE / OS / logs
+.idea/
+.vscode/
+.DS_Store
+*.log

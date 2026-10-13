@@ -1,0 +1,17 @@
+/* Feedback e estados reais das APIs, sem alterar o sistema visual existente. */
+.page-content { min-width: 0; }
+.api-notice { max-width: 1640px; margin: 14px auto 0; padding: 11px 15px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--muted); font-size: 12px; }
+.api-notice.loading { color: var(--blue); background: var(--blue-soft); border-color: #dce8f8; }
+.api-notice.error { color: #9e3737; background: #fff4f3; border-color: #f1d6d4; }
+.chart-empty { min-height: 188px; margin-top: 10px; display: grid; place-content: center; gap: 6px; border: 1px dashed var(--line); border-radius: 11px; text-align: center; color: var(--muted); }
+.chart-empty span { color: var(--forest); font-size: 12px; font-weight: 700; }
+.chart-empty small { font-size: 10px; }
+.system-mini i.offline,.topbar-status i.offline { background: var(--orange); box-shadow: 0 0 0 3px rgba(220,127,39,.15); }
+.comparison-climate { margin: 0 0 12px; padding: 10px 12px; border-radius: 8px; background: var(--canvas); color: var(--muted); font-size: 11px; }
+.auth-security-note { margin-top: 15px; color: var(--muted); font-size: 10px; line-height: 1.5; }
+.btn:disabled { opacity: .65; cursor: wait; }
+.security-option input:disabled + .toggle-track { opacity: .5; cursor: not-allowed; }
+
+@media (max-width: 680px) {
+  .api-notice { margin-inline: 14px; }
+}

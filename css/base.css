@@ -1,0 +1,8 @@
+/* Base: box-sizing, body e tipografia dos títulos. */
+
+* { box-sizing: border-box; }
+body { margin: 0; color: var(--ink); background: var(--canvas); font-family: "DM Sans", sans-serif; -webkit-font-smoothing: antialiased; }
+button, input, select, textarea { font: inherit; }
+button { cursor: pointer; }
+h1,h2,h3,p { margin: 0; }
+h1,h2,h3,.logo strong { font-family: "Manrope", sans-serif; }

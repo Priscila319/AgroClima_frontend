@@ -1,0 +1,23 @@
+/* Design tokens — valores idênticos aos do projeto original. */
+
+:root {
+  --forest: #123c2d;
+  --forest-2: #0b3024;
+  --green: #167c55;
+  --green-2: #24966a;
+  --mint: #e8f5ef;
+  --blue: #2879c9;
+  --blue-soft: #eaf3fb;
+  --navy: #16324a;
+  --wine: #7c3d67;
+  --purple: #7654b5;
+  --gold: #d99725;
+  --orange: #d76b32;
+  --red: #c94b4b;
+  --ink: #192923;
+  --muted: #6d7d76;
+  --line: #e2e9e5;
+  --surface: #ffffff;
+  --canvas: #f5f8f6;
+  --shadow: 0 8px 28px rgba(21, 53, 40, .07);
+}
