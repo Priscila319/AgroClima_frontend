@@ -260,6 +260,8 @@ function handleClick(event) {
     const page = element.dataset.page;
     if (NAVIGATION[getState().role]?.some((item) => item.label === page) && canAccessPage(getState().role, page)) {
       setState({ page, menuOpen: false, pageError: '' });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      element.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
     return;
   }
