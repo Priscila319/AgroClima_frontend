@@ -4,7 +4,7 @@ import { analyticsDashboardPage, analystHistoryPage, analystReportsPage, quality
 import { adminDashboardPage, usersPage, integrationsPage } from '../views/pages/admin.js';
 import { rbacPage, securityPage, systemLogsPage } from '../views/pages/admin-extra.js';
 import { alertsPage, comparisonPage, designSystemPage, genericPage, settingsPage } from '../views/pages/shared.js';
-import { canAccessPage } from '../modules/access-control.js';
+import { canOpenPage } from '../modules/access-control.js';
 import { html } from '../utils/html.js';
 import { page } from '../views/pages/page-layout.js';
 import { pageHeader } from '../components/page-header.js';
@@ -45,7 +45,7 @@ function accessDenied(title) {
 
 export function renderPage(state) {
   const { page: title, role } = state;
-  if (!canAccessPage(role, title)) return accessDenied(title || 'Página');
+  if (!title || !canOpenPage(role, title)) return accessDenied(title || 'Nenhuma área disponível');
   if (title === 'Histórico') {
     return role === ROLES.ANALYST ? analystHistoryPage(state) : producerHistoryPage(state);
   }

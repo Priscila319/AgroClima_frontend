@@ -20,4 +20,18 @@
   --surface: #ffffff;
   --canvas: #f5f8f6;
   --shadow: 0 8px 28px rgba(21, 53, 40, .07);
+
+  /* Tokens do Design System (personalizáveis pelo administrador).
+     Os padrões reproduzem exatamente o visual original; o JS sobrescreve
+     estas variáveis inline com os valores salvos em /api/settings. */
+  --green-strong: #116d4a;
+  --btn-primary-bg: var(--green);
+  --btn-primary-text: #ffffff;
+  --font-body: "DM Sans", sans-serif;
+  --font-heading: "Manrope", sans-serif;
+  --root-font-size: 100%;
+  --card-radius: 15px;
+  --btn-radius: 9px;
+  --card-border-width: 1px;
+  --card-shadow: 0 2px 5px rgba(21, 53, 40, .025);
 }

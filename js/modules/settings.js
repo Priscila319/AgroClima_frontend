@@ -1,5 +1,6 @@
 import { apiGet, apiPatch } from '../services/api.js';
 import { DEFAULT_VARIETY } from '../data/varieties.js';
+import { DEFAULT_DESIGN, normalizeDesign } from './design-tokens.js';
 
 export const DEFAULT_SETTINGS = Object.freeze({
   general: {
@@ -17,6 +18,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
     lockAfterFailures: true,
     sessionTimeout: '30',
   },
+  design: DEFAULT_DESIGN,
 });
 
 function mergeDefaults(defaults, saved) {
@@ -31,6 +33,7 @@ function mergeDefaults(defaults, saved) {
 export function getSettings(saved = {}) {
   const merged = mergeDefaults(DEFAULT_SETTINGS, saved || {});
   if (!['light', 'dark'].includes(merged.appearance.theme)) merged.appearance.theme = 'light';
+  merged.design = normalizeDesign(merged.design);
   return merged;
 }
 

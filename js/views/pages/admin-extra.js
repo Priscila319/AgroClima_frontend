@@ -5,6 +5,7 @@ import { pageHeader } from '../../components/page-header.js';
 import { tableWrapper } from '../../components/tables.js';
 import { ROLES } from '../../config/roles.js';
 import { PERMISSIONS, DEFAULT_RBAC } from '../../modules/access-control.js';
+import { formatStoredPhone } from '../../utils/phone.js';
 import { page } from './page-layout.js';
 
 const FALLBACK_ROLES = [
@@ -56,16 +57,35 @@ function permissionMatrix(snapshot, roles) {
   return html`<div class="table-scroll"><table class="permission-matrix"><thead><tr>${header}</tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
-export function rbacPage({ rbac = DEFAULT_RBAC, rbacMessage = '' } = {}) {
+/** Campo de telefone com máscara brasileira automática (somente dígitos). */
+const phoneField = (value = '') => html`<label class="field"><span>Telefone (DDD + número)</span><input name="phone" type="tel" inputmode="numeric" autocomplete="tel" maxlength="16" placeholder="(81) 99999-9999" value="${formatStoredPhone(value)}" data-phone aria-describedby="phone-hint"><small class="field-hint" id="phone-hint">Opcional. Celular (81) 99999-9999 ou fixo (81) 3333-3333. Salvo com DDI 55.</small></label>`;
+
+function editUserCard(user, userFormError) {
+  if (!user) return '';
+  return card(html`<form class="rbac-add-user edit-user-form" data-form="edit-user">
+    ${sectionHead({ title: `Editar dados de ${user.name}`, subtitle: 'O telefone é recarregado do servidor e validado novamente ao salvar.' })}
+    ${userFormError && html`<p class="form-feedback error" role="alert">${userFormError}</p>`}
+    <div class="form-grid">
+      <label class="field"><span>Nome</span><input name="name" required minlength="2" maxlength="160" value="${user.name}"></label>
+      ${phoneField(user.phone)}
+      <label class="field"><span>Empresa</span><input name="organization" maxlength="160" value="${user.organization || ''}"></label>
+      <label class="field"><span>Cargo</span><input name="jobTitle" maxlength="120" value="${user.jobTitle || ''}"></label>
+      <div class="button-row"><button type="button" class="btn btn-secondary" data-action="cancel-edit-user">Cancelar</button><button type="submit" class="btn btn-primary">${icon('check', 16)} Salvar dados</button></div>
+    </div></form>`, 'table-card');
+}
+
+export function rbacPage({ rbac = DEFAULT_RBAC, rbacMessage = '', editingUserId = null, userFormError = '' } = {}) {
   const snapshot = rbac || DEFAULT_RBAC;
   const roles = rolesFor(snapshot);
   const permissions = permissionsFor(snapshot);
   const users = snapshot.users || [];
+  const editingUser = users.find((user) => user.id === editingUserId) || null;
   const userRows = users.map((user) => html`<tr>
     <td><strong>${user.name}</strong><small class="cell-note">${user.email}</small></td>
     <td>${roleSelect(user, roles)}</td>
     <td>${statusSelect(user)}</td>
     <td>${formatDateTime(user.lastLoginAt)}</td>
+    <td>${button('Editar', { variant: 'ghost', action: 'edit-user', userId: user.id })}</td>
   </tr>`);
   const roleCards = roles.map((role) => card(
     html`<div class="rbac-role-card-icon">${icon(role.key === 'ADMIN' ? 'lock' : role.key === 'ANALYST' ? 'activity' : 'leaf')}</div><div><span>Papel</span><strong>${role.label}</strong><small>${users.filter((user) => user.roleKey === role.key || user.role === role.label).length} usuários · ${rolePermissionCount(snapshot, role)} permissões</small></div>`,
@@ -83,14 +103,18 @@ export function rbacPage({ rbac = DEFAULT_RBAC, rbacMessage = '' } = {}) {
       { icon: 'check', label: 'Permissões', value: permissions.length, meta: 'Consultadas no servidor', tone: 'purple' },
     ], 'four'),
     html`<div class="rbac-role-grid">${roleCards}</div>`,
+    editUserCard(editingUser, userFormError),
     card(
       html`${sectionHead({ title: 'Usuários e papéis', subtitle: 'Alterações são persistidas no servidor e aplicadas pelo controle de acesso da API.' })}
-        ${tableWrapper(['Usuário', 'Papel', 'Situação', 'Último acesso'], userRows)}
-        <form class="rbac-add-user" data-form="rbac-user"><h3>Criar conta de usuário</h3><div class="form-grid">
+        ${tableWrapper(['Usuário', 'Papel', 'Situação', 'Último acesso', 'Dados'], userRows)}
+        <form class="rbac-add-user" data-form="rbac-user"><h3>Criar conta de usuário</h3>
+        <p class="cell-note">Somente administradores criam contas. Não existe cadastro público.</p>
+        ${!editingUser && userFormError && html`<p class="form-feedback error" role="alert">${userFormError}</p>`}
+        <div class="form-grid">
           <label class="field"><span>Nome</span><input name="name" required minlength="2" maxlength="160" placeholder="Nome completo"></label>
           <label class="field"><span>E-mail</span><input name="email" type="email" required maxlength="254" placeholder="nome@empresa.com"></label>
           <label class="field"><span>Senha inicial</span><input name="password" type="password" required minlength="8" maxlength="72" autocomplete="new-password"></label>
-          <label class="field"><span>Telefone</span><input name="phone" maxlength="30"></label>
+          ${phoneField()}
           <label class="field"><span>Empresa</span><input name="organization" maxlength="160"></label>
           <label class="field"><span>Cargo</span><input name="jobTitle" maxlength="120"></label>
           <label class="field"><span>Papel inicial</span><select name="role">${roleOptions}</select></label>

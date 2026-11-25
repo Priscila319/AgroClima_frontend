@@ -1,12 +1,16 @@
 import { html } from '../utils/html.js';
 import { ACCOUNTS, NAVIGATION } from '../config/roles.js';
 import { renderPage } from '../config/routes.js';
-import { canAccessPage } from '../modules/access-control.js';
+import { canOpenPage } from '../modules/access-control.js';
 import { icon } from '../components/icons.js';
 import { logo } from '../components/ui.js';
 
+/**
+ * RBAC na navegação: somente páginas que o perfil pode abrir são renderizadas.
+ * Itens sem permissão ficam completamente ocultos (nunca desabilitados).
+ */
 function navigationItems(role, activePage) {
-  return (NAVIGATION[role] || []).filter((item) => canAccessPage(role, item.label)).map((item) => {
+  return (NAVIGATION[role] || []).filter((item) => canOpenPage(role, item.label)).map((item) => {
     const isActive = item.label === activePage;
     return html`<button type="button" class="${isActive ? 'active' : ''}"${isActive ? html` aria-current="page"` : ''} data-action="navigate" data-page="${item.label}">${icon(item.icon)}<span>${item.label}</span></button>`;
   });
@@ -16,7 +20,12 @@ function sidebar(state) {
   const account = ACCOUNTS[state.role] || ACCOUNTS['Produtor/Exportador'];
   const systemName = state.settings?.general?.systemName || 'AgroClima Cloud';
   const apiReady = !state.dataErrors?.length;
-  return html`<div class="sidebar-overlay ${state.menuOpen ? 'show' : ''}" data-action="close-menu"></div><aside class="sidebar ${state.menuOpen ? 'open' : ''}" aria-label="Menu lateral"><div class="sidebar-top">${logo({ light: true, name: systemName })}<button type="button" class="mobile-close" data-action="close-menu" aria-label="Fechar menu">${icon('close')}</button></div><div class="role-pill"><span>${account.badge}</span><div><small>Perfil</small><strong>${state.role}</strong></div></div><nav aria-label="Navegação principal"><span class="nav-label">Navegação</span>${navigationItems(state.role, state.page)}</nav><div class="sidebar-bottom"><button type="button">${icon('help')}<span>Central de ajuda</span></button><div class="system-mini"><span><i class="${apiReady ? '' : 'offline'}"></i>${apiReady ? 'Serviços AgroClima' : 'Serviço indisponível'}</span><small>Dados persistidos nas APIs</small></div></div></aside>`;
+  const items = navigationItems(state.role, state.page);
+  // Se nenhuma página do grupo estiver acessível, a categoria inteira some.
+  const navigation = items.length
+    ? html`<nav aria-label="Navegação principal"><span class="nav-label">Navegação</span>${items}</nav>`
+    : html`<div class="nav-empty" role="status"><small>Nenhuma área liberada para este perfil. Solicite acesso a um administrador.</small></div>`;
+  return html`<div class="sidebar-overlay ${state.menuOpen ? 'show' : ''}" data-action="close-menu"></div><aside class="sidebar ${state.menuOpen ? 'open' : ''}" aria-label="Menu lateral"><div class="sidebar-top">${logo({ light: true, name: systemName })}<button type="button" class="mobile-close" data-action="close-menu" aria-label="Fechar menu">${icon('close')}</button></div><div class="role-pill"><span>${account.badge}</span><div><small>Perfil</small><strong>${state.role}</strong></div></div>${navigation}<div class="sidebar-bottom"><button type="button">${icon('help')}<span>Central de ajuda</span></button><div class="system-mini"><span><i class="${apiReady ? '' : 'offline'}"></i>${apiReady ? 'Serviços AgroClima' : 'Serviço indisponível'}</span><small>Dados persistidos nas APIs</small></div></div></aside>`;
 }
 
 function topbar(state) {

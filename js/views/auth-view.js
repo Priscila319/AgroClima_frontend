@@ -11,15 +11,8 @@ const AUTH_POINTS = [
 
 const backToLogin = html`<button type="button" class="back-link" data-action="auth-mode" data-mode="login">← Voltar ao login</button>`;
 
-const textField = ({ label, placeholder, type = 'text', name, required = true, autocomplete = '', minLength, maxLength }) =>
-  html`<label class="field"><span>${label}</span><input name="${name}" type="${type}" placeholder="${placeholder}"${required ? ' required' : ''}${autocomplete ? html` autocomplete="${autocomplete}"` : ''}${minLength ? html` minlength="${minLength}"` : ''}${maxLength ? html` maxlength="${maxLength}"` : ''}></label>`;
-
 function loginForm(email, authMessage = '', busy = false) {
-  return html`<div class="auth-heading"><span class="overline">Acesso à plataforma</span><h1>Bem-vindo ao AgroClima Cloud</h1><p>Entre com a conta cadastrada no serviço seguro da plataforma.</p></div>${authMessage && html`<p class="form-feedback auth-feedback" role="alert">${authMessage}</p>`}<form data-form="login"><label class="field"><span>E-mail</span><input id="login-email" name="email" type="email" value="${email}" placeholder="nome@empresa.com" autocomplete="username" required></label><label class="field"><span>Senha</span><div class="input-icon"><input name="password" type="password" placeholder="Digite sua senha" autocomplete="current-password" required maxlength="72">${icon('eye')}</div></label>${button(busy ? 'Entrando…' : 'Entrar na plataforma', { type: 'submit', disabled: busy })}</form><div class="signup-link">Ainda não tem uma conta? <button type="button" data-action="auth-mode" data-mode="signup">Criar uma conta</button></div><p class="auth-security-note">A autenticação e as permissões são verificadas pela API Java. Não use contas demonstrativas.</p>`;
-}
-
-function signupForm(authMessage = '', busy = false) {
-  return html`${backToLogin}<div class="auth-heading"><h1>Crie sua conta</h1><p>O cadastro público cria uma conta de Produtor. Um administrador poderá alterar o perfil.</p></div>${authMessage && html`<p class="form-feedback auth-feedback" role="alert">${authMessage}</p>`}<form data-form="signup"><div class="form-grid">${textField({ name: 'name', label: 'Nome completo', placeholder: 'Seu nome', autocomplete: 'name', minLength: 2, maxLength: 160 })}${textField({ name: 'email', label: 'E-mail', placeholder: 'nome@empresa.com', type: 'email', autocomplete: 'email', maxLength: 254 })}${textField({ name: 'phone', label: 'Telefone', placeholder: '(87) 99999-0000', required: false, autocomplete: 'tel', maxLength: 30 })}${textField({ name: 'organization', label: 'Empresa', placeholder: 'Nome da empresa', required: false, maxLength: 160 })}${textField({ name: 'jobTitle', label: 'Cargo', placeholder: 'Seu cargo', required: false, maxLength: 120 })}${textField({ name: 'password', label: 'Senha', placeholder: 'Mínimo 8 caracteres', type: 'password', autocomplete: 'new-password', minLength: 8, maxLength: 72 })}${textField({ name: 'confirmPassword', label: 'Confirmar senha', placeholder: 'Repita a senha', type: 'password', autocomplete: 'new-password', minLength: 8, maxLength: 72 })}</div><label class="terms"><input name="terms" type="checkbox" required>Li e aceito os Termos de Uso e a Política de Privacidade.</label>${button(busy ? 'Criando…' : 'Criar conta', { type: 'submit', disabled: busy })}</form>`;
+  return html`<div class="auth-heading"><span class="overline">Acesso à plataforma</span><h1>Bem-vindo ao AgroClima Cloud</h1><p>Entre com a conta cadastrada no serviço seguro da plataforma.</p></div>${authMessage && html`<p class="form-feedback auth-feedback" role="alert">${authMessage}</p>`}<form data-form="login"><label class="field"><span>E-mail</span><input id="login-email" name="email" type="email" value="${email}" placeholder="nome@empresa.com" autocomplete="username" required></label><label class="field"><span>Senha</span><div class="input-icon"><input name="password" type="password" placeholder="Digite sua senha" autocomplete="current-password" required maxlength="72">${icon('eye')}</div></label>${button(busy ? 'Entrando…' : 'Entrar na plataforma', { type: 'submit', disabled: busy })}</form><p class="auth-security-note">Contas são criadas exclusivamente pelo administrador no painel. A autenticação e as permissões são verificadas pela API Java.</p>`;
 }
 
 function forgotForm(authMessage = '') {
@@ -27,7 +20,7 @@ function forgotForm(authMessage = '') {
 }
 
 export function authFormContent({ authMode, email, authMessage, authBusy }) {
-  if (authMode === 'signup') return signupForm(authMessage, authBusy);
+  // Cadastro público removido: só existe login (e a orientação de recuperação).
   if (authMode === 'forgot') return forgotForm(authMessage);
   return loginForm(email, authMessage, authBusy);
 }

@@ -14,10 +14,10 @@ import '@fontsource/manrope/latin-800.css';
 import '@fontsource/manrope/latin-ext-800.css';
 
 import { bindEvents } from './events/index.js';
-import { renderPage } from './config/routes.js';
 import { NAVIGATION } from './config/roles.js';
-import { canAccessPage, DEFAULT_RBAC, setRbacSnapshot } from './modules/access-control.js';
+import { canAccessPage, canOpenPage, setRbacSnapshot, snapshotForUser } from './modules/access-control.js';
 import { getCurrentUser, hasSession, signOut } from './modules/auth.js';
+import { applyDesignTokens } from './modules/design-tokens.js';
 import { getSettings } from './modules/settings.js';
 import { getState, resetState, setState, subscribe } from './state/store.js';
 import { authFormContent, authView } from './views/auth-view.js';
@@ -27,14 +27,18 @@ import { mount, queryRequired, replaceElement } from './utils/dom.js';
 
 const root = queryRequired('#root');
 
-function applyTheme(theme) {
-  document.documentElement.dataset.theme = theme === 'dark' ? 'dark' : 'light';
-  document.documentElement.style.colorScheme = theme === 'dark' ? 'dark' : 'light';
+function applyAppearance(state) {
+  const theme = state.theme === 'dark' ? 'dark' : 'light';
+  document.documentElement.dataset.theme = theme;
+  document.documentElement.style.colorScheme = theme;
+  // Tokens do Design System valem para todas as páginas e ambos os temas.
+  // O rascunho (designDraft) permite pré-visualização em tempo real antes de salvar.
+  applyDesignTokens(state.designDraft || state.settings?.design, theme);
 }
 
 function renderApp() {
   const state = getState();
-  applyTheme(state.theme);
+  applyAppearance(state);
   mount(root, state.authenticated ? shellView(state) : authView(state));
 }
 
@@ -66,20 +70,56 @@ function updateVariety() {
   if (hadFocus) root.querySelector('select[data-action="change-variety"]')?.focus({ preventScroll: true });
 }
 
-function roleKeyFromUser(user) {
-  return String(user?.roleKey || 'PRODUCER').toUpperCase();
+function firstPageFor(role) {
+  return NAVIGATION[role]?.find((item) => canAccessPage(role, item.label))?.label || null;
 }
 
-function firstPageFor(role) {
-  return NAVIGATION[role]?.find((item) => canAccessPage(role, item.label))?.label || NAVIGATION[role]?.[0]?.label || null;
+/* ------------------------- Navegação por URL (#/pagina) ------------------------- */
+
+const slugify = (label) => String(label).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+const PAGE_BY_SLUG = new Map();
+Object.values(NAVIGATION).flat().forEach((item) => PAGE_BY_SLUG.set(slugify(item.label), item.label));
+
+function pageFromHash() {
+  const match = globalThis.location?.hash.match(/^#\/([a-z0-9-]+)$/);
+  return match ? PAGE_BY_SLUG.get(match[1]) ?? null : null;
 }
+
+function syncHash(page) {
+  if (typeof globalThis.history?.replaceState !== 'function') return;
+  const target = page ? `#/${slugify(page)}` : '#/';
+  if (globalThis.location.hash !== target) globalThis.history.replaceState(null, '', target);
+}
+
+function clearHash() {
+  if (typeof globalThis.history?.replaceState !== 'function') return;
+  globalThis.history.replaceState(null, '', globalThis.location.pathname + globalThis.location.search);
+}
+
+function resolveInitialPage(role) {
+  const fromHash = pageFromHash();
+  if (fromHash && canOpenPage(role, fromHash)) return fromHash;
+  return firstPageFor(role);
+}
+
+// URL direta editada manualmente: só abre página do perfil e com permissão.
+globalThis.addEventListener?.('hashchange', () => {
+  const state = getState();
+  if (!state.authenticated) return;
+  const target = pageFromHash();
+  if (target && canOpenPage(state.role, target)) {
+    if (state.page !== target) setState({ page: target, menuOpen: false, pageError: '' });
+  } else {
+    syncHash(state.page);
+  }
+});
 
 async function refreshPageData(page = getState().page) {
   const state = getState();
   if (!state.authenticated || !page) return;
   setState({ pageLoading: true, pageError: '' });
   try {
-    const result = await loadPageData(page, state.roleKey);
+    const result = await loadPageData(page, state.roleKey, state.user?.permissionKeys || []);
     if (!getState().authenticated || getState().page !== page) return;
     const errors = result.pageErrors || [];
     const pageError = errors.length ? errors.map((error) => error.message).join(' · ') : '';
@@ -95,8 +135,9 @@ async function refreshPageData(page = getState().page) {
 async function openWorkspace(rawUser) {
   const user = normalizeUser(rawUser);
   const role = roleLabel(user.roleKey);
-  setRbacSnapshot(DEFAULT_RBAC);
-  const page = firstPageFor(role);
+  // As permissões efetivas vêm da API (login/me). Nada é liberado por suposição.
+  setRbacSnapshot(snapshotForUser(user));
+  const page = resolveInitialPage(role);
   setState({
     authenticated: true,
     booting: false,
@@ -111,16 +152,18 @@ async function openWorkspace(rawUser) {
     pageError: '',
     dataErrors: [],
   });
+  syncHash(page);
 
   const workspace = await loadWorkspaceData(user);
   if (!getState().authenticated) return;
-  const allowedPage = canAccessPage(role, page) ? page : firstPageFor(role);
+  const allowedPage = page && canOpenPage(role, page) ? page : firstPageFor(role);
   const settings = getSettings(workspace.settings || {});
   setState({
     ...workspace,
     page: allowedPage,
     settings,
     theme: settings.appearance.theme,
+    designDraft: null,
     variety: settings.general.defaultVariety || getState().variety,
     users: workspace.users || [],
     auditLogs: workspace.auditLogs || [],
@@ -128,6 +171,7 @@ async function openWorkspace(rawUser) {
     varieties: workspace.varieties || [],
     dataErrors: workspace.dataErrors || [],
   });
+  syncHash(allowedPage);
   await refreshPageData(allowedPage);
 }
 
@@ -137,7 +181,14 @@ async function restoreSession() {
   renderApp();
   try {
     const user = await getCurrentUser();
-    if (user) await openWorkspace(user);
+    if (user) {
+      await openWorkspace(user);
+    } else {
+      // Token expirado entre a checagem inicial e a consulta à API.
+      signOut();
+      setState({ authenticated: false, booting: false, authMessage: 'Sua sessão expirou. Entre novamente.' });
+      renderApp();
+    }
   } catch {
     signOut();
     setState({ authenticated: false, booting: false, authMessage: 'Sua sessão expirou. Entre novamente.' });
@@ -158,13 +209,20 @@ globalThis.addEventListener?.('agroclima:unauthorized', () => {
 
 subscribe((state, changedKeys) => {
   const has = (key) => changedKeys.includes(key);
-  if (has('theme')) applyTheme(state.theme);
-  if (has('authenticated')) return renderApp();
+  if (has('theme')) applyAppearance(state);
+  if (has('authenticated')) {
+    if (!state.authenticated) clearHash();
+    return renderApp();
+  }
   if (!state.authenticated) return has('authMode') || has('authMessage') || has('authBusy') || has('booting') ? renderAuthForm() : undefined;
 
-  if (has('settings') || has('user') || has('role') || has('roleKey')) return renderApp();
+  if (has('settings') || has('user') || has('role') || has('roleKey') || has('theme')) {
+    syncHash(state.page);
+    return renderApp();
+  }
 
   if (has('page')) {
+    syncHash(state.page);
     updateNavigation(state);
     renderPageContent();
     void refreshPageData(state.page);
@@ -173,12 +231,12 @@ subscribe((state, changedKeys) => {
   }
   if (has('menuOpen')) updateMenu(state);
 
-  const page = state.page;
   const refreshKeys = [
-    'pageLoading', 'pageError', 'pageErrors', 'dashboard', 'analystDashboard', 'climate', 'market', 'forecast',
+    'pageLoading', 'pageError', 'pageErrors', 'dashboard', 'analystDashboard', 'climate', 'market', 'grapePrices', 'grapeProduction', 'exportValue', 'forecast',
     'comparison', 'quality', 'integrationStatus', 'pythonHealth', 'plantations', 'plantationHistory', 'users', 'rbac', 'auditLogs',
-    'settingsSection', 'settingsMessage', 'producerMessage', 'rbacMessage', 'modelMessage', 'designMessage',
-    'logSearch', 'logStatus', 'logResource', 'logSort', 'expandedLogId', 'varieties',
+    'settingsSection', 'settingsMessage', 'producerMessage', 'rbacMessage', 'modelMessage', 'designMessage', 'designError',
+    'modelStatus', 'agronomy', 'modelBusy', 'modelError', 'modelAlgorithm', 'modelHorizon',
+    'logSearch', 'logStatus', 'logResource', 'logSort', 'expandedLogId', 'varieties', 'editingUserId', 'userFormError',
   ];
   if (refreshKeys.some(has)) renderPageContent();
 });

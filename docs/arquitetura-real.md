@@ -34,7 +34,7 @@ O navegador não chama URLs de produção. O Vite é apenas proxy local; não é
 
 ### Java — `localhost:8080`
 
-- `POST /api/auth/login`, `POST /api/auth/register`, `GET /api/auth/me`;
+- `POST /api/auth/login`, `GET /api/auth/me` (não há cadastro público: contas são criadas por um administrador em `POST /api/users`);
 - `GET /api/plantations`, `GET /api/plantations/history`, `POST/PATCH/DELETE /api/plantations/**`, `POST /api/plantations/{id}/harvest`;
 - `GET /api/varieties`;
 - `GET/POST/PATCH /api/users/**`, `GET /api/roles`, `GET /api/permissions`, `PATCH /api/roles/{key}/permissions`;

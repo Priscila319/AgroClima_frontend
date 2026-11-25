@@ -7,17 +7,6 @@ export async function signIn(email, password) {
   return result.user;
 }
 
-export async function signUp({ name, email, password, phone, organization, jobTitle }) {
-  return apiPost('java', '/api/auth/register', {
-    fullName: String(name || '').trim(),
-    email: String(email || '').trim(),
-    password,
-    phone: String(phone || '').trim(),
-    organization: String(organization || '').trim(),
-    jobTitle: String(jobTitle || '').trim(),
-  }, { auth: false });
-}
-
 export async function getCurrentUser() {
   if (!getAccessToken()) return null;
   return apiGet('java', '/api/auth/me');

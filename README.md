@@ -66,6 +66,7 @@ Preencha pelo menos:
 - `JWT_SECRET`: segredo aleatório de pelo menos 32 bytes;
 - `INITIAL_ADMIN_EMAIL` e `INITIAL_ADMIN_PASSWORD`: conta administrativa inicial;
 - `INTERNAL_API_KEY`: chave aleatória com pelo menos 32 caracteres, compartilhada com o Python;
+- `FIELD_ENCRYPTION_KEY`: chave AES-256 em Base64 (`openssl rand -base64 32`) que cifra o telefone dos usuários no MySQL;
 - `PORT` e `SERVER_ADDRESS`: por padrão `8080` e `127.0.0.1`;
 - `CORS_ALLOWED_ORIGINS`: lista explícita de origens locais, sem `*`.
 
@@ -126,8 +127,8 @@ mvn spring-boot:run
 A primeira execução do Maven baixa dependências de build; depois, a API roda localmente. O primeiro boot aplica as migrations e cria a conta administrativa inicial se ela ainda não existir.
 
 - Health: <http://localhost:8080/actuator/health>
-- Swagger UI: <http://localhost:8080/swagger-ui.html>
-- OpenAPI JSON: <http://localhost:8080/v3/api-docs>
+- Swagger UI: <http://localhost:8080/swagger-ui.html> (exige `SWAGGER_ENABLED=true`)
+- OpenAPI JSON: <http://localhost:8080/v3/api-docs> (exige `SWAGGER_ENABLED=true`)
 
 ## 5. Iniciar a API Python
 
@@ -201,7 +202,7 @@ curl -i http://localhost:8080/api/auth/me \
   -H 'Authorization: Bearer COLE_O_ACCESS_TOKEN_AQUI'
 ```
 
-Sem token, `/api/auth/me` e os recursos protegidos devem responder `401`. As permissões e o escopo de produtor são verificados pelo backend; a interface não substitui essas verificações. Também é possível criar uma conta Produtor pela tela de cadastro do frontend ou por `POST /api/auth/register`.
+Sem token, `/api/auth/me` e os recursos protegidos devem responder `401`; com token válido mas sem a permissão exigida, respondem `403`. As permissões e o escopo de produtor são verificados pelo backend; a interface não substitui essas verificações. **Não existe cadastro público**: contas são criadas exclusivamente pelo administrador em `POST /api/users` (permissão `users.manage`), pela tela "Permissões e RBAC" do painel.
 
 ### Testar o proxy frontend → APIs
 
@@ -261,7 +262,7 @@ A suíte de persistência Java usa Testcontainers com MySQL e é marcada para se
 ## 10. Variáveis e dependências externas
 
 - Portas padrão: frontend `5173`, Java `8080`, Python `8000`, MySQL Server `3306`.
-- Segredos necessários: `JWT_SECRET`, `INITIAL_ADMIN_PASSWORD` e `INTERNAL_API_KEY`; além da senha do usuário local do MySQL. Mantenha os `.env` reais fora do Git.
+- Segredos necessários: `JWT_SECRET`, `INITIAL_ADMIN_PASSWORD`, `INTERNAL_API_KEY` e `FIELD_ENCRYPTION_KEY`; além da senha do usuário local do MySQL. Mantenha os `.env` reais fora do Git.
 - Python e Java comunicam-se por `localhost`; o navegador usa same-origin pelo proxy Vite, com bases diretas configuráveis por `VITE_API_JAVA_BASE` e `VITE_API_PYTHON_BASE`.
 - ThingSpeak (`https://api.thingspeak.com`) é opcional e externo. Não há dependência de backend hospedado ou domínio.
 - npm, PyPI e Maven podem ser acessados para baixar dependências durante a instalação inicial; não são chamadas de runtime da aplicação.

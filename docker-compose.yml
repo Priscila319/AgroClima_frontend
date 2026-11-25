@@ -35,13 +35,15 @@ services:
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
       JWT_TTL_MINUTES: ${JWT_TTL_MINUTES:-60}
       INTERNAL_API_KEY: ${INTERNAL_API_KEY:?Set INTERNAL_API_KEY in .env}
+      FIELD_ENCRYPTION_KEY: ${FIELD_ENCRYPTION_KEY:?Set FIELD_ENCRYPTION_KEY in .env (openssl rand -base64 32)}
+      SWAGGER_ENABLED: ${SWAGGER_ENABLED:-false}
       INITIAL_ADMIN_EMAIL: ${INITIAL_ADMIN_EMAIL:-admin@agroclima.com}
       INITIAL_ADMIN_PASSWORD: ${INITIAL_ADMIN_PASSWORD:?Set INITIAL_ADMIN_PASSWORD in .env}
       MAX_LOGIN_FAILURES: ${MAX_LOGIN_FAILURES:-5}
       LOGIN_LOCKOUT_MINUTES: ${LOGIN_LOCKOUT_MINUTES:-15}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:8081}
     ports:
-      - "${JAVA_PORT:-8080}:8080"
+      - "127.0.0.1:${JAVA_PORT:-8080}:8080"
     networks: [agroclima]
 
   python:
@@ -62,8 +64,15 @@ services:
       THINGSPEAK_RESULTS_LIMIT: ${THINGSPEAK_RESULTS_LIMIT:-500}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:8081}
       ROOT_PATH: /api/python
+      MODEL_STORAGE_DIR: /app/models_store
+      MODEL_MIN_TRAIN_DAYS: ${MODEL_MIN_TRAIN_DAYS:-60}
+      MODEL_MAX_TRAIN_DAYS: ${MODEL_MAX_TRAIN_DAYS:-730}
+      VINEYARD_LATITUDE: ${VINEYARD_LATITUDE:--9.4}
+      CROP_COEFFICIENT: ${CROP_COEFFICIENT:-0.8}
     ports:
-      - "${PYTHON_PORT:-8000}:8000"
+      - "127.0.0.1:${PYTHON_PORT:-8000}:8000"
+    volumes:
+      - agroclima-models:/app/models_store
     networks: [agroclima]
 
   frontend:
@@ -80,6 +89,7 @@ services:
 
 volumes:
   agroclima-mysql:
+  agroclima-models:
 
 networks:
   agroclima:

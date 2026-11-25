@@ -146,17 +146,62 @@ export function forecastsPage({ variety, forecast, climate }) {
   );
 }
 
-export function marketPage({ variety, market, dashboard }) {
+function formatBrl(value) {
+  if (value === null || value === undefined || !Number.isFinite(Number(value))) return '—';
+  return Number(value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+export function marketPage({ variety, market, dashboard, grapePrices, grapeProduction, exportValue }) {
   const available = Boolean(market?.available && market?.series?.length);
   const rows = available ? market.series.map((item) => html`<tr><td>${item.date || item.timestamp || '—'}</td><td>${item.price ?? '—'}</td><td>${item.market || '—'}</td><td>${item.currency || '—'}</td></tr>`) : [];
+  const priceItems = grapePrices?.items || [];
+  const productionItems = [...(grapeProduction?.items || [])].sort((a, b) => (b.valor ?? -1) - (a.valor ?? -1));
+  const hasGrapeData = priceItems.length > 0 || productionItems.length > 0;
+  const priceRows = priceItems.map((item) => html`<tr><td>${item.ano_safra}</td><td>${item.tipo_dado || '—'}</td><td>${item.variedade_grupo || '—'}</td><td>${item.grau_glucometrico || '—'}</td><td>${item.regiao_praca || '—'}</td><td>${formatBrl(item.preco_brl_kg)}</td></tr>`);
+  const productionRows = productionItems.map((item) => html`<tr><td>${item.localidade}</td><td>${item.valor === null || item.valor === undefined ? '—' : item.valor.toLocaleString('pt-BR')}</td><td>${item.unidade || '—'}</td></tr>`);
   return page(
-    pageHeader({ title: 'Mercado e Exportação', subtitle: `Informações de mercado para ${variety} somente serão exibidas após configurar uma fonte real.`, variety }),
+    pageHeader({ title: 'Mercado e Exportação', subtitle: hasGrapeData ? `Preços de uva (CONAB) e valor da produção por estado (IBGE/PAM). São dados de referência do mercado de uva, não específicos de ${variety}.` : `Informações de mercado para ${variety} somente serão exibidas após configurar uma fonte real.`, variety }),
     metricsGrid([
-      { icon: 'market', label: 'Fonte de preço', value: available ? (market.source || 'Conectada') : 'Não configurada', meta: 'Integração externa necessária' },
-      { icon: 'trend', label: 'Série de preços', value: available ? market.series.length : '—', meta: 'Nenhum valor demonstrativo exibido', tone: 'blue' },
+      { icon: 'market', label: 'Fonte de preço', value: hasGrapeData ? 'CONAB · IBGE' : (available ? (market.source || 'Conectada') : 'Não configurada'), meta: hasGrapeData ? 'Arquivos CSV do projeto' : 'Integração externa necessária' },
+      { icon: 'trend', label: 'Série de preços', value: priceItems.length || (available ? market.series.length : '—'), meta: priceItems.length ? 'Registros de preço da uva (CONAB)' : 'Nenhum valor demonstrativo exibido', tone: 'blue' },
       { icon: 'activity', label: 'Plantações registradas', value: dashboard?.plantations?.totalPlantations ?? 0, meta: 'API Java', tone: 'purple' },
-      { icon: 'truck', label: 'Demanda', value: 'Sem dados', meta: 'Sem fonte de mercado', tone: 'orange' },
+      {
+        icon: 'truck',
+        label: 'Exportação (FOB)',
+        value: exportValue?.disponivel
+          ? `US$ ${Number(exportValue.valor_exportado_usd).toLocaleString('en-US', { maximumFractionDigits: 0 })}`
+          : 'Sem dados',
+        meta: exportValue?.disponivel
+          ? `Preço médio US$ ${exportValue.preco_medio_usd_kg ?? '—'}/kg · ${exportValue.fonte}`
+          : 'ComexStat não disponível',
+        tone: exportValue?.disponivel ? 'green' : 'orange',
+      },
     ], 'four'),
-    available ? card(html`${sectionHead({ title: 'Dados de mercado', subtitle: `Fonte: ${market.source || 'API configurada'}` })}${tableWrapper(['Data', 'Preço', 'Mercado', 'Moeda'], rows)}`, 'table-card') : unavailableAnalysis('Dados de mercado indisponíveis', market?.message || 'Nenhuma fonte de preços ou demanda está configurada.'),
+    priceRows.length ? card(html`${sectionHead({ title: 'Preços da uva (CONAB)', subtitle: 'Preço mínimo oficial e cotações de mercado, em R$/kg' })}${tableWrapper(['Safra', 'Tipo', 'Variedade/grupo', 'Grau', 'Região/praça', 'Preço'], priceRows)}`, 'table-card') : '',
+    exportValue?.disponivel
+      ? card(html`
+        ${sectionHead({
+          title: 'Valor de exportação de uvas',
+          subtitle: `Fonte: ${exportValue.fonte} · Período: ${exportValue.periodo}`,
+        })}
+        <div class="metrics-inline">
+          <div>
+            <strong>Valor exportado</strong>
+            <div>US$ ${Number(exportValue.valor_exportado_usd).toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
+          </div>
+          <div>
+            <strong>Quantidade</strong>
+            <div>${Number(exportValue.quantidade_toneladas).toLocaleString('pt-BR')} t</div>
+          </div>
+          <div>
+            <strong>Preço médio</strong>
+            <div>US$ ${exportValue.preco_medio_usd_kg ?? '—'}/kg</div>
+          </div>
+        </div>
+        <p class="muted">NCM ${exportValue.ncm} — ${exportValue.produto}</p>
+      `, 'table-card')
+      : '',
+    productionRows.length ? card(html`${sectionHead({ title: 'Valor da produção de uva por estado (IBGE/PAM 2025)', subtitle: 'Ordenado do maior para o menor valor' })}${tableWrapper(['Localidade', 'Valor', 'Unidade'], productionRows)}`, 'table-card') : '',
+    (hasGrapeData || exportValue?.disponivel) ? '' : (available ? card(html`${sectionHead({ title: 'Dados de mercado', subtitle: `Fonte: ${market.source || 'API configurada'}` })}${tableWrapper(['Data', 'Preço', 'Mercado', 'Moeda'], rows)}`, 'table-card') : unavailableAnalysis('Dados de mercado indisponíveis', market?.message || 'Nenhuma fonte de preços ou demanda está configurada.')),
   );
 }

@@ -1,5 +1,8 @@
 import { html } from '../../utils/html.js';
 import { findVariety, VARIETIES } from '../../data/varieties.js';
+import { COLOR_FIELDS, DEFAULT_DESIGN, FONT_OPTIONS, SHADOW_OPTIONS, normalizeDesign } from '../../modules/design-tokens.js';
+import { canOpenPage } from '../../modules/access-control.js';
+import { getState } from '../../state/store.js';
 import { icon } from '../../components/icons.js';
 import { badge, button, card, chartCard, metricsGrid, sectionHead } from '../../components/ui.js';
 import { barChart, lineChart } from '../../components/charts.js';
@@ -57,7 +60,11 @@ const SETTINGS_SECTIONS = [
 
 function settingsNavigation(active) {
   const sections = SETTINGS_SECTIONS.map(([label, iconName]) => html`<button type="button" class="${active === label ? 'active' : ''}" data-action="settings-section" data-section="${label}" aria-current="${active === label ? 'page' : 'false'}">${icon(iconName)}${label}${icon('chevron', 16)}</button>`);
-  return html`${sections}<button type="button" data-action="navigate" data-page="Segurança">${icon('shield')}Segurança${icon('chevron', 16)}</button>`;
+  // O atalho para Segurança só aparece para quem pode abrir a página.
+  const securityLink = canOpenPage(getState().role, 'Segurança')
+    ? html`<button type="button" data-action="navigate" data-page="Segurança">${icon('shield')}Segurança${icon('chevron', 16)}</button>`
+    : '';
+  return html`${sections}${securityLink}`;
 }
 
 function settingsPanel(settings, section, varieties = []) {
@@ -105,22 +112,54 @@ export function settingsPage({ settings, settingsSection = 'Geral', settingsMess
 
 /* ------------------------------ Design System ------------------------------ */
 
-const SWATCHES = ['forest', 'emerald', 'blue', 'navy', 'wine', 'gold', 'danger', 'cloud'];
-const SYSTEM_STATES = [
-  ['activity', 'Carregando', 'Atualizando informações...', 'Carregamento de demonstração ativado.'],
-  ['warning', 'Sem dados', 'Nenhum registro no período.', 'Estado vazio selecionado para visualização.'],
-  ['wifi', 'Conexão perdida', 'Confira sua conexão.', 'Estado de conexão selecionado para visualização.'],
-];
+function colorControl(theme, field, value) {
+  const path = `${theme}.${field.key}`;
+  return html`<label class="ds-color"><span>${field.label}</span><div><input type="color" value="${value}" data-design="${path}" aria-label="${field.label} (${theme === 'dark' ? 'tema escuro' : 'tema claro'})"><code data-design-value="${path}">${value}</code></div></label>`;
+}
 
-export function designSystemPage({ designMessage = '' } = {}) {
-  const colors = card(html`<h3>Cores do produto</h3><div class="swatches">${SWATCHES.map((name) => html`<div><i class="swatch-${name}"></i><span>${name}</span></div>`)}</div>`);
-  const typography = card(html`<h3>Tipografia</h3><div class="type-samples"><b>Display / Semibold</b><strong>Dashboard de clima</strong><p>Interface / Regular — Dados claros para decisões melhores.</p></div>`);
-  const components = card(html`<h3>Botões e indicadores</h3><div class="component-row"><button type="button" class="btn btn-primary" data-action="design-interaction" data-message="O botão principal está funcionando.">Primário</button><button type="button" class="btn btn-secondary" data-action="design-interaction" data-message="O botão secundário está funcionando.">Secundário</button><button type="button" class="btn btn-ghost" data-action="design-interaction" data-message="O botão de texto está funcionando.">Texto</button>${badge('Sucesso')}${badge('Atenção', 'warning')}</div>${designMessage && html`<p class="design-feedback" role="status">${icon('check', 15)}${designMessage}</p>`}`);
-  const states = card(html`<h3>Estados do sistema</h3><div class="state-grid">${SYSTEM_STATES.map(([iconName, title, description, message]) => html`<button type="button" data-action="design-interaction" data-message="${message}">${icon(iconName)}<b>${title}</b><span>${description}</span></button>`)}</div>`);
-  const fields = card(html`<h3>Campos e controles</h3><div class="form-grid"><label class="field"><span>Campo de texto</span><input placeholder="Digite para testar"></label><label class="field"><span>Lista de opções</span><select><option>Opção de exemplo</option><option>Outra opção</option></select></label><label class="design-check"><input type="checkbox" checked><span>Controle selecionável</span></label></div><button type="button" class="btn btn-secondary" data-action="design-interaction" data-message="Os campos do design system estão prontos para interação.">Testar campos</button>`);
+function fontSelect(label, path, current) {
+  return html`<label class="field"><span>${label}</span><select data-design="${path}">${FONT_OPTIONS.map((option) => html`<option value="${option.value}"${option.value === current ? ' selected' : ''}>${option.label}</option>`)}</select></label>`;
+}
+
+function rangeControl(label, path, value, min, max, suffix, step = 1) {
+  return html`<label class="field ds-range"><span>${label} <output data-design-value="${path}" data-suffix="${suffix}">${value}${suffix}</output></span><input type="range" min="${min}" max="${max}" step="${step}" value="${value}" data-design="${path}"></label>`;
+}
+
+export function designSystemPage({ settings, designDraft, designMessage = '', designError = false, theme = 'light' } = {}) {
+  const design = normalizeDesign(designDraft || settings?.design || DEFAULT_DESIGN);
+  const activeTheme = theme === 'dark' ? 'dark' : 'light';
+  const palette = design[activeTheme];
+  const dirty = Boolean(designDraft);
+
+  const themeTabs = html`<div class="ds-theme-tabs" role="group" aria-label="Tema em edição"><button type="button" class="${activeTheme === 'light' ? 'active' : ''}" data-action="design-theme" data-theme="light" aria-pressed="${activeTheme === 'light'}">${icon('sun', 15)} Tema claro</button><button type="button" class="${activeTheme === 'dark' ? 'active' : ''}" data-action="design-theme" data-theme="dark" aria-pressed="${activeTheme === 'dark'}">${icon('moon', 15)} Tema escuro</button></div>`;
+
+  const colors = card(html`<h3>Cores do produto — ${activeTheme === 'dark' ? 'tema escuro' : 'tema claro'}</h3>${themeTabs}<p class="ds-hint">Cada tema tem sua própria paleta. A alteração é aplicada em tempo real em todas as páginas.</p><div class="ds-colors">${COLOR_FIELDS.map((field) => colorControl(activeTheme, field, palette[field.key]))}</div>`);
+
+  const typography = card(html`<h3>Tipografia</h3><div class="form-grid">
+    ${fontSelect('Fonte dos textos', 'typography.bodyFont', design.typography.bodyFont)}
+    ${fontSelect('Fonte dos títulos', 'typography.headingFont', design.typography.headingFont)}
+    ${rangeControl('Tamanho geral das fontes', 'typography.fontScale', design.typography.fontScale, 85, 125, '%', 5)}
+  </div><div class="type-samples"><b>Display / Semibold</b><strong>Dashboard de clima</strong><p>Interface / Regular — Dados claros para decisões melhores.</p></div>`);
+
+  const components = card(html`<h3>Aparência dos componentes</h3><div class="form-grid">
+    ${rangeControl('Arredondamento dos cards', 'components.cardRadius', design.components.cardRadius, 0, 28, 'px')}
+    ${rangeControl('Arredondamento dos botões', 'components.buttonRadius', design.components.buttonRadius, 0, 24, 'px')}
+    ${rangeControl('Espessura das bordas', 'components.borderWidth', design.components.borderWidth, 0, 3, 'px')}
+    <label class="field"><span>Sombra dos cards</span><select data-design="components.cardShadow">${SHADOW_OPTIONS.map((option) => html`<option value="${option.value}"${option.value === design.components.cardShadow ? ' selected' : ''}>${option.label}</option>`)}</select></label>
+  </div>`);
+
+  const preview = card(html`<h3>Pré-visualização</h3><div class="component-row"><button type="button" class="btn btn-primary">Primário</button><button type="button" class="btn btn-secondary">Secundário</button><button type="button" class="btn btn-ghost">Texto</button>${badge('Sucesso')}${badge('Atenção', 'warning')}</div><div class="form-grid ds-preview-fields"><label class="field"><span>Campo de texto</span><input placeholder="Digite para testar"></label><label class="field"><span>Lista de opções</span><select><option>Opção de exemplo</option><option>Outra opção</option></select></label></div><div class="ds-preview-card card"><strong>Card de exemplo</strong><p>Bordas, cantos, sombra e cores seguem os tokens ao lado.</p></div>`);
+
+  const publish = card(html`<h3>Salvar e restaurar</h3>
+    ${designMessage && (designError
+      ? html`<p class="form-feedback error" role="alert">${icon('warning', 15)} ${designMessage}</p>`
+      : html`<p class="form-feedback" role="status">${icon('check', 15)} ${designMessage}</p>`)}
+    <p class="ds-hint">${dirty ? 'Há alterações não salvas em pré-visualização.' : 'Nenhuma alteração pendente: o design salvo está em uso.'} As configurações ficam no servidor e valem para todos os usuários, inclusive após atualizar a página ou entrar novamente.</p>
+    <div class="button-row"><button type="submit" class="btn btn-primary">${icon('check', 16)} Salvar design</button><button type="button" class="btn btn-secondary" data-action="design-discard"${dirty ? '' : ' disabled'}>Descartar alterações</button><button type="button" class="btn btn-ghost" data-action="design-reset">Restaurar padrão</button></div>`);
+
   return page(
-    pageHeader({ title: 'Design System', subtitle: 'Visualize componentes, confira estados e teste as interações.', varietyMode: 'hidden' }),
-    html`<div class="ds-grid">${colors}${typography}${components}${states}${fields}</div>`,
+    pageHeader({ title: 'Design System', subtitle: 'Personalize cores, fontes e componentes. Tudo é aplicado em tempo real e persistido no servidor.', varietyMode: 'hidden' }),
+    html`<form data-form="design-system"><div class="ds-grid">${colors}${typography}${components}${preview}${publish}</div></form>`,
   );
 }
 

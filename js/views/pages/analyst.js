@@ -204,10 +204,147 @@ export function qualityPage({ variety, quality, analystDashboard, climate }) {
   );
 }
 
-export function modelsPage({ forecast, modelMessage = '' } = {}) {
+const RISK_LABELS = { LOW: 'Baixo', MODERATE: 'Moderado', HIGH: 'Alto', INSUFFICIENT_DATA: 'Sem dados' };
+const RISK_TONES = { LOW: 'success', MODERATE: 'warning', HIGH: 'danger', INSUFFICIENT_DATA: 'neutral' };
+const ALGORITHM_LABELS = { auto: 'Automático (melhor RMSE)', random_forest: 'Random Forest', gradient_boosting: 'Gradient Boosting' };
+const HARVEST_LABELS = { REACHED: 'Alvo atingido', PROJECTED: 'Projetada', BEYOND_HORIZON: 'Além do horizonte', INSUFFICIENT_DATA: 'Sem dados' };
+
+const riskBadge = (level) => badge(RISK_LABELS[level] || RISK_LABELS.INSUFFICIENT_DATA, RISK_TONES[level] || 'neutral');
+const algorithmLabel = (key) => ALGORITHM_LABELS[key] || key || '—';
+
+function formatDate(value) {
+  if (!value) return '—';
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? String(value) : parsed.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+}
+
+function modelTrainingPanel({ canManage, status, busy, algorithm, horizon, message, error }) {
+  if (!canManage) return '';
+  const active = status?.activeModel;
+  const enabled = Boolean(status?.mlEnabled);
+  const completeDays = status?.completeDays ?? 0;
+  const minDays = status?.mlMinTrainDays ?? 60;
+  const algorithmOptions = Object.entries(ALGORITHM_LABELS).map(
+    ([value, label]) => html`<option value="${value}"${value === algorithm ? ' selected' : ''}>${label}</option>`,
+  );
+  const horizonOptions = [1, 2, 3, 5, 7].map(
+    (value) => html`<option value="${value}"${value === Number(horizon) ? ' selected' : ''}>${value} dia(s)</option>`,
+  );
+  return card(html`
+    ${sectionHead({ title: 'Treinamento de machine learning', subtitle: 'Treina no histórico real da estação e valida por walk-forward (MAE / RMSE / R²).' })}
+    ${enabled ? '' : html`<div class="form-feedback warning" role="status">${icon('warning', 16)}<span>Histórico insuficiente: ${number(completeDays, 0)} dia(s) completo(s), mínimo de ${number(minDays, 0)}. O treinamento é habilitado automaticamente ao acumular dados.</span></div>`}
+    <div class="model-controls">
+      <label class="field compact"><span>Algoritmo</span><select data-action="model-algorithm"${busy ? ' disabled' : ''}>${algorithmOptions}</select></label>
+      <label class="field compact"><span>Horizonte</span><select data-action="model-horizon"${busy ? ' disabled' : ''}>${horizonOptions}</select></label>
+      <div class="button-row">
+        ${button(busy ? 'Treinando…' : 'Treinar modelo', { iconName: 'model', action: 'train-model', disabled: busy || !enabled })}
+        ${active ? button('Remover modelo', { variant: 'ghost', iconName: 'close', action: 'delete-model', disabled: busy }) : ''}
+        ${button('Atualizar', { variant: 'ghost', iconName: 'activity', action: 'refresh-models', disabled: busy })}
+      </div>
+    </div>
+    ${error ? html`<div class="form-feedback error" role="alert">${icon('warning', 16)}<span>${error}</span></div>` : ''}
+    ${message ? html`<div class="form-feedback success" role="status">${icon('check', 16)}<span>${message}</span></div>` : ''}
+    ${active ? html`<p class="model-meta">Modelo ativo: <strong>${algorithmLabel(active.algorithm)}</strong> · treinado em ${formatDate(active.trainedAt)} · ${number(active.trainingDays, 0)} dias · ${number(active.featureCount, 0)} features · horizonte ${number(active.horizonDays, 0)} dia(s).</p>` : ''}
+  `, 'table-card model-training');
+}
+
+function modelForecastSection(forecast) {
+  const predictions = Array.isArray(forecast?.predictions) ? forecast.predictions : [];
+  if (!forecast?.available || !predictions.length) {
+    return card(html`<div class="empty-state"><span>${icon('model')}</span><strong>Projeção indisponível</strong><small>${forecast?.message || 'Acumule dias completos de leitura para habilitar a projeção.'}</small></div>`, 'table-card');
+  }
+  const rows = predictions.map((item) => html`<tr>
+    <td>${formatDate(item.date)}</td>
+    <td>${number(item.temperature)} °C</td>
+    <td class="muted-cell">${number(item.temperatureLow)} – ${number(item.temperatureHigh)} °C</td>
+    <td>${number(item.humidity)}%</td>
+    <td class="muted-cell">${number(item.humidityLow)} – ${number(item.humidityHigh)}%</td>
+  </tr>`);
+  const chart = lineChart({
+    data: predictions.map((item) => item.temperature),
+    labels: predictions.map((item) => formatDate(item.date)),
+    color: 'green',
+  });
+  return html`<div class="grid-main">
+    ${chartCard({ title: 'Temperatura projetada', subtitle: `Modelo ${forecast.model || '—'} · intervalo de ~95%`, content: chart })}
+    ${card(html`${sectionHead({ title: 'Projeção por dia', subtitle: 'Faixa Low/High = intervalo de confiança do backtest.' })}${tableWrapper(['Data', 'Temperatura', 'Faixa °C', 'Umidade', 'Faixa %'], rows)}`, 'table-card')}
+  </div>`;
+}
+
+function modelMetricsSection(forecast, status) {
+  const metrics = forecast?.metrics || {};
+  const temperature = metrics.temperature || {};
+  const humidity = metrics.humidity || {};
+  const active = status?.activeModel;
+  const candidates = Array.isArray(active?.candidates) ? active.candidates : [];
+  const candidateRows = candidates.map((candidate) => html`<tr>
+    <td>${algorithmLabel(candidate.algorithm)}${candidate.selected ? ' ✓' : ''}</td>
+    <td>${number(candidate.metrics?.temperature?.mae, 2)}</td>
+    <td>${number(candidate.metrics?.temperature?.rmse, 2)}</td>
+    <td>${number(candidate.metrics?.temperature?.r2, 3)}</td>
+    <td>${number(candidate.metrics?.humidity?.rmse, 2)}</td>
+  </tr>`);
+  return card(html`
+    ${sectionHead({ title: 'Métricas de validação (backtest walk-forward)', subtitle: forecast?.backtestDays ? `${forecast.backtestDays} origens de teste · erro real, sem dados artificiais.` : 'Erro medido em dados retidos do histórico.' })}
+    ${tableWrapper(['Alvo', 'MAE', 'RMSE', 'R²', 'Amostras'], [
+      html`<tr><td>Temperatura (°C)</td><td>${number(temperature.mae, 2)}</td><td>${number(temperature.rmse, 2)}</td><td>${number(temperature.r2, 3)}</td><td>${number(temperature.samples, 0)}</td></tr>`,
+      html`<tr><td>Umidade (%)</td><td>${number(humidity.mae, 2)}</td><td>${number(humidity.rmse, 2)}</td><td>${number(humidity.r2, 3)}</td><td>${number(humidity.samples, 0)}</td></tr>`,
+    ])}
+    ${candidates.length ? html`<h3 class="model-subhead">Comparação de algoritmos</h3>${tableWrapper(['Algoritmo', 'MAE temp', 'RMSE temp', 'R² temp', 'RMSE umid'], candidateRows)}` : ''}
+  `, 'table-card');
+}
+
+function agronomySection(agronomy) {
+  const plantations = Array.isArray(agronomy?.plantations) ? agronomy.plantations : [];
+  if (!agronomy?.available || !plantations.length) {
+    return card(html`<div class="empty-state"><span>${icon('leaf')}</span><strong>Indicadores agronômicos indisponíveis</strong><small>${agronomy?.message || 'Cadastre plantações e acumule leituras para calcular GDD, colheita, doença e irrigação.'}</small></div>`, 'table-card');
+  }
+  const cards = plantations.map((item) => {
+    const harvest = item.harvest;
+    const irrigation = item.irrigation;
+    const progress = Math.max(0, Math.min(100, Number(item.gddProgressPercent) || 0));
+    const harvestText = harvest?.status === 'PROJECTED' && harvest.expected
+      ? `${formatDate(harvest.expected)} (${formatDate(harvest.earliest)} – ${formatDate(harvest.latest)})`
+      : HARVEST_LABELS[harvest?.status] || '—';
+    return card(html`
+      <div class="agronomy-head">
+        <div><span class="overline">${item.field || 'Talhão não informado'}</span><h3>${item.variety}</h3></div>
+        ${badge(item.status === 'GROWING' ? 'Em cultivo' : item.status === 'HARVESTED' ? 'Colhida' : 'Arquivada', item.status === 'GROWING' ? 'success' : 'neutral')}
+      </div>
+      <div class="agronomy-progress"><div class="agronomy-bar" style="width:${progress}%"></div></div>
+      <p class="model-meta">${number(item.accumulatedGdd)} / ${number(item.targetGdd)} GDD (${number(progress)}%)${item.daysSincePlanting != null ? ` · ${number(item.daysSincePlanting, 0)} dias desde o plantio` : ''}</p>
+      <ul class="agronomy-list">
+        <li>${icon('clock', 15)}<span>Colheita: <strong>${harvestText}</strong></span></li>
+        <li>${icon('warning', 15)}<span>Míldio: ${riskBadge(item.downyMildewRisk)} · Oídio: ${riskBadge(item.powderyMildewRisk)}</span></li>
+        <li>${icon('drop', 15)}<span>ET0: <strong>${number(irrigation?.et0MmDay)} mm/dia</strong> · ETc: <strong>${number(irrigation?.etcMmDay)} mm/dia</strong> (Kc ${number(irrigation?.cropCoefficient, 2)})</span></li>
+        <li>${icon('activity', 15)}<span>DPV médio: <strong>${number(irrigation?.vpdKpa)} kPa</strong> · ${number(item.recentHighRiskDays, 0)} dia(s) de risco alto recente</span></li>
+      </ul>
+      ${item.message ? html`<p class="model-meta">${item.message}</p>` : ''}
+    `, 'agronomy-card');
+  });
+  return html`<div class="agronomy-grid">${cards}</div>`;
+}
+
+export function modelsPage({ forecast, modelStatus, agronomy, modelMessage = '', modelBusy = false, modelError = '', modelAlgorithm = 'auto', modelHorizon = 3, user } = {}) {
+  const canManage = Boolean(user?.permissionKeys?.includes?.('models.manage'));
+  const status = modelStatus;
+  const active = status?.activeModel;
+  const kindLabel = forecast?.modelKind === 'ml' ? 'Machine learning' : forecast?.modelKind === 'statistical' ? 'Estatístico' : 'Modelo';
+  const headline = forecast?.available ? (forecast.model || 'Modelo conectado') : 'Nenhum modelo ativo';
   return page(
-    pageHeader({ title: 'Modelos Preditivos', subtitle: 'Estado dos modelos de previsão conectados ao serviço Python.', varietyMode: 'hidden' }),
-    card(html`<div class="model-badge">${icon('model', 28)}</div><div><span class="overline">Estado da análise</span><h2>${forecast?.available ? (forecast.model || 'Modelo conectado') : 'Nenhum modelo configurado'}</h2><p>${forecast?.message || modelMessage || 'O serviço não retornou um modelo preditivo ativo.'}</p></div>${badge(forecast?.available ? 'Disponível' : 'Indisponível', forecast?.available ? 'success' : 'warning')}`, 'model-hero'),
-    card(html`<div class="empty-state"><span>${icon('activity')}</span><strong>Treinamento não disponível</strong><small>Esta implantação não possui endpoint de treinamento nem métricas de modelo. A interface não gera resultados artificiais.</small></div>`, 'table-card'),
+    pageHeader({ title: 'Modelos Preditivos', subtitle: 'Projeção climática e indicadores agronômicos calculados do histórico real da estação.', varietyMode: 'hidden' }),
+    card(html`<div class="model-badge">${icon('model', 28)}</div><div><span class="overline">${kindLabel}</span><h2>${headline}</h2><p>${forecast?.message || status?.message || modelMessage || 'O serviço não retornou um modelo preditivo ativo.'}</p></div>${badge(forecast?.available ? 'Disponível' : 'Indisponível', forecast?.available ? 'success' : 'warning')}`, 'model-hero'),
+    metricsGrid([
+      { icon: 'database', label: 'Dias completos', value: number(status?.completeDays ?? 0, 0), meta: status?.mlEnabled ? 'Histórico suficiente para ML' : `Mínimo de ${number(status?.mlMinTrainDays ?? 60, 0)} para ML`, tone: 'blue' },
+      { icon: 'model', label: 'Modelo ativo', value: active ? algorithmLabel(active.algorithm) : (forecast?.available ? 'Estatístico' : '—'), meta: active ? `Treinado em ${formatDate(active.trainedAt)}` : 'Sem modelo ML treinado', tone: 'purple' },
+      { icon: 'trend', label: 'MAE temperatura', value: forecast?.metrics?.temperature?.mae != null ? `${number(forecast.metrics.temperature.mae, 2)} °C` : '—', meta: 'Erro médio absoluto (backtest)', tone: 'green' },
+      { icon: 'quality', label: 'R² temperatura', value: number(forecast?.metrics?.temperature?.r2, 3), meta: 'Qualidade do ajuste no backtest', tone: 'orange' },
+    ], 'four'),
+    modelTrainingPanel({ canManage, status, busy: modelBusy, algorithm: modelAlgorithm, horizon: modelHorizon, message: modelMessage, error: modelError }),
+    modelForecastSection(forecast),
+    modelMetricsSection(forecast, status),
+    sectionHead({ title: 'Indicadores agronômicos por plantação', subtitle: 'GDD desde o plantio, janela de colheita, risco de doença e necessidade hídrica (ET0 Hargreaves × Kc).' }),
+    agronomySection(agronomy),
+    card(html`<div class="form-feedback warning" role="note">${icon('warning', 16)}<span>Projeção do histórico da estação — <strong>não é previsão meteorológica</strong>. Sem sensor de chuva ou umidade do solo; a irrigação é demanda atmosférica estimada. Nenhum resultado artificial é exibido.</span></div>`, 'table-card'),
   );
 }

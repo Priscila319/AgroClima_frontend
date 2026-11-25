@@ -1,10 +1,16 @@
 import { html } from '../utils/html.js';
+import { canOpenPage } from '../modules/access-control.js';
+import { getState } from '../state/store.js';
 import { icon } from './icons.js';
 
 /** Componentes visuais pequenos e reutilizáveis (equivalentes aos componentes do projeto original). */
 
-export const button = (children, { variant = 'primary', iconName, type = 'button', action, page, disabled = false, title } = {}) =>
-  html`<button type="${type}" class="btn btn-${variant}"${action ? html` data-action="${action}"` : ''}${page ? html` data-page="${page}"` : ''}${disabled ? ' disabled' : ''}${title ? html` title="${title}"` : ''}>${iconName && icon(iconName, 17)}<span>${children}</span></button>`;
+export const button = (children, { variant = 'primary', iconName, type = 'button', action, page, userId, disabled = false, title } = {}) => {
+  // RBAC também vale para ações: atalhos que levam a páginas sem permissão
+  // ficam completamente ocultos, em qualquer tela que use este componente.
+  if (action === 'navigate' && page && !canOpenPage(getState().role, page)) return '';
+  return html`<button type="${type}" class="btn btn-${variant}"${action ? html` data-action="${action}"` : ''}${page ? html` data-page="${page}"` : ''}${userId ? html` data-user-id="${userId}"` : ''}${disabled ? ' disabled' : ''}${title ? html` title="${title}"` : ''}>${iconName && icon(iconName, 17)}<span>${children}</span></button>`;
+};
 
 /**
  * Campo <select>. Sem `action`, o valor fica travado (comportamento do original,
