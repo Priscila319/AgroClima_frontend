@@ -1,0 +1,11 @@
+/* Base: box-sizing, body e tipografia dos títulos.
+   A escala tipográfica (--root-font-size) é controlada pelo Design System;
+   os tamanhos em rem acompanham a escala preservando o padrão em 100%. */
+
+* { box-sizing: border-box; }
+html { font-size: var(--root-font-size, 100%); }
+body { margin: 0; color: var(--ink); background: var(--canvas); font-family: var(--font-body, "DM Sans", sans-serif); -webkit-font-smoothing: antialiased; }
+button, input, select, textarea { font: inherit; }
+button { cursor: pointer; }
+h1,h2,h3,p { margin: 0; }
+h1,h2,h3,.logo strong { font-family: var(--font-heading, "Manrope", sans-serif); }
