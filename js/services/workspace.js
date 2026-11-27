@@ -60,7 +60,7 @@ export async function loadWorkspaceData(user) {
   return result;
 }
 
-export async function loadPageData(page, roleKey, permissionKeys = []) {
+export async function loadPageData(page, roleKey, permissionKeys = [], period) {
   const key = String(roleKey || '').toUpperCase();
   const permissions = new Set(Array.isArray(permissionKeys) ? permissionKeys : []);
   const requests = [];
@@ -71,8 +71,11 @@ export async function loadPageData(page, roleKey, permissionKeys = []) {
     if (page === 'Dashboard Analítico') add('analystDashboard', 'python', '/api/v1/dashboard/analyst');
     else add('dashboard', 'python', '/api/v1/dashboard/summary');
   }
-  if (['Monitoramento', 'Dados Climáticos'].includes(page)) add('climate', 'python', '/api/v1/climate/current');
-  if (page === 'Previsões') add('forecast', 'python', '/api/v1/dashboard/forecast');
+  if (['Monitoramento', 'Dados Climáticos'].includes(page)) add('climate', 'python', climatePathForPeriod(period));
+  if (page === 'Previsões') {
+    add('forecast', 'python', '/api/v1/dashboard/forecast');
+    add('climate', 'python', climatePathForPeriod(period));
+  }
   if (page === 'Modelos Preditivos') {
     add('forecast', 'python', '/api/v1/models/forecast');
     add('modelStatus', 'python', '/api/v1/models/status');
