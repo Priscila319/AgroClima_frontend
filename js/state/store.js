@@ -17,6 +17,7 @@ const initialState = () => ({
   page: null,
   variety: DEFAULT_SETTINGS.general.defaultVariety || DEFAULT_VARIETY,
   varieties: [],
+  period: DEFAULT_PERIOD,
   menuOpen: false,
   theme: DEFAULT_SETTINGS.appearance.theme,
   settings: DEFAULT_SETTINGS,
