@@ -4,7 +4,7 @@ import { getState } from '../state/store.js';
 import { selectField } from './ui.js';
 import { PERIOD_OPTIONS } from '../config/periods.js';
 
-const PERIOD_AWARE_TITLES = ['Monitoramento Climático', 'Previsões']
+const PERIOD_AWARE_TITLES = ['Monitoramento Climático', 'Previsões'];
 
 function varietySelector(varietyName, { locked }) {
   const catalog = getState().varieties || [];
@@ -22,8 +22,8 @@ function varietySelector(varietyName, { locked }) {
 /** Cabeçalho preservando o seletor de variedade carregado do catálogo Java. */
 export function pageHeader({ title, subtitle, variety, varietyMode = 'live' }) {
   return html`<header class="page-heading"><div><div class="eyebrow">AgroClima Cloud <span>/</span> ${title}</div><h1>${title}</h1><p>${subtitle}</p></div><div class="page-filters">${
-    varietyMode !== 'hidden' && varietySelector(variety, { locked: varietyMode === 'locked' })
+    varietyMode !== 'hidden' ? varietySelector(variety, { locked: varietyMode === 'locked' }) : ''
   }${PERIOD_AWARE_TITLES.includes(title)
     ? selectField({ label: 'Período', value: getState().period || PERIOD_OPTIONS[0], options: PERIOD_OPTIONS, action: 'change-period' })
-    : selectField({ label: 'Período', value: PERIOD_OPTIONS[0], options: PERIOD_OPTIONS })}
+    : selectField({ label: 'Período', value: PERIOD_OPTIONS[0], options: PERIOD_OPTIONS })}</div></header>`;
 }
