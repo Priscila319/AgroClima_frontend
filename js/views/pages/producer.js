@@ -6,6 +6,7 @@ import { lineChart } from '../../components/charts.js';
 import { pageHeader } from '../../components/page-header.js';
 import { comparisonTable, readingsTable, tableWrapper } from '../../components/tables.js';
 import { page } from './page-layout.js';
+import { pointLabel, seriesSpanMs } from '../../config/periods.js';
 
 function formatNumber(value, maximumFractionDigits = 1) {
   if (value === null || value === undefined || !Number.isFinite(Number(value))) return 'Sem leitura';
@@ -50,12 +51,12 @@ function seriesFor(climate, requested) {
   const points = Array.isArray(climate?.series) ? climate.series : [];
   const values = [];
   const labels = [];
+  const spanMs = seriesSpanMs(points);
   points.forEach((point) => {
     const raw = point.values?.[key];
     if (raw === null || raw === undefined || !Number.isFinite(Number(raw))) return;
     values.push(Number(raw));
-    const date = new Date(point.timestamp);
-    labels.push(Number.isNaN(date.getTime()) ? '' : new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' }).format(date));
+    labels.push(pointLabel(point.timestamp, spanMs));
   });
   return { values, labels };
 }
