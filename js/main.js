@@ -119,7 +119,7 @@ async function refreshPageData(page = getState().page) {
   if (!state.authenticated || !page) return;
   setState({ pageLoading: true, pageError: '' });
   try {
-    const result = await loadPageData(page, state.roleKey, state.user?.permissionKeys || []);
+    const result = await loadPageData(page, state.roleKey, state.user?.permissionKeys || [], state.period);
     if (!getState().authenticated || getState().page !== page) return;
     const errors = result.pageErrors || [];
     const pageError = errors.length ? errors.map((error) => error.message).join(' · ') : '';
@@ -228,6 +228,9 @@ subscribe((state, changedKeys) => {
     void refreshPageData(state.page);
   } else if (has('variety')) {
     updateVariety();
+  } else if (has('period')) {
+    renderPageContent();
+    void refreshPageData(state.page);
   }
   if (has('menuOpen')) updateMenu(state);
 
