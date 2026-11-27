@@ -22,6 +22,15 @@ function emptyChart(message) {
   return html`<div class="chart-empty"><span>Sem dados</span><small>${message}</small></div>`;
 }
 
+const MAX_AXIS_LABELS = 7;
+
+function thinLabels(labels) {
+  if (labels.length <= MAX_AXIS_LABELS) return labels;
+  const step = (labels.length - 1) / (MAX_AXIS_LABELS - 1);
+  const keep = new Set(Array.from({ length: MAX_AXIS_LABELS }, (_, i) => Math.round(i * step)));
+  return labels.filter((_, index) => keep.has(index));
+}
+
 export function lineChart({ data = [], secondary, color = 'green', labels = [] } = {}) {
   const values = (Array.isArray(data) ? data : []).map(Number).filter(Number.isFinite);
   if (values.length < 2) return emptyChart('São necessárias ao menos duas leituras reais para desenhar a série.');
@@ -37,7 +46,7 @@ export function lineChart({ data = [], secondary, color = 'green', labels = [] }
     <polygon points="${toSvgPoints(values)} 582,170 18,170" class="area chart-${color}" fill="url(#fill-${color})"/>
     <polyline points="${toSvgPoints(values)}" class="series chart-${color}"/>
     ${secondaryValues && secondaryValues.length === values.length && html`<polyline points="${toSvgPoints(secondaryValues)}" class="series chart-blue dashed"/>`}
-  </svg><div class="axis-labels">${axisLabels.map((label) => html`<span>${label}</span>`)}</div></div>`;
+  </svg><div class="axis-labels">${thinLabels(axisLabels).map((label) => html`<span>${label}</span>`)}</div></div>`;
 }
 
 export const barChart = (values = [], labels = []) => {
