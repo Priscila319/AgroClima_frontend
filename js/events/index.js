@@ -463,6 +463,10 @@ function handleChange({ target }) {
     setState({ variety: target.value });
     return;
   }
+  if (target.matches('select[data-action="change-period"]')) {
+    setState({ period: target.value });
+    return;
+  }
   if (target.matches('select[data-locked-value]')) {
     target.value = target.dataset.lockedValue;
     return;
