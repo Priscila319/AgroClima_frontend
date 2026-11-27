@@ -2,6 +2,7 @@ import { DEFAULT_VARIETY } from '../data/varieties.js';
 import { ROLES } from '../config/roles.js';
 import { DEFAULT_SETTINGS } from '../modules/settings.js';
 import { DEFAULT_RBAC } from '../modules/access-control.js';
+import { DEFAULT_PERIOD } from '../config/periods.js';
 
 const initialState = () => ({
   authenticated: false,
