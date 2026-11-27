@@ -1,5 +1,6 @@
 import { apiGet } from './api.js';
 import { mergeUserIntoSnapshot, setRbacSnapshot, normalizeRbacSnapshot, snapshotForUser } from '../modules/access-control.js';
+import { climatePathForPeriod } from '../config/periods.js';
 
 const ROLE_LABELS = { PRODUCER: 'Produtor/Exportador', ANALYST: 'Analista de Dados', ADMIN: 'Administrador' };
 
