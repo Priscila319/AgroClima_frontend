@@ -63,6 +63,7 @@ export async function loadWorkspaceData(user) {
 export async function loadPageData(page, roleKey, permissionKeys = [], period) {
   const key = String(roleKey || '').toUpperCase();
   const permissions = new Set(Array.isArray(permissionKeys) ? permissionKeys : []);
+  const canReadPlantations = permissions.has('plantations.manage') || permissions.has('plantations.read.all');
   const requests = [];
   const add = (name, service, path) => requests.push([name, () => apiGet(service, path)]);
   if (page === 'Histórico' || page === 'Relatórios') add('plantationHistory', 'java', '/api/plantations/history');
@@ -70,16 +71,20 @@ export async function loadPageData(page, roleKey, permissionKeys = [], period) {
   if (['Visão Geral', 'Dashboard Analítico', 'Dashboard Admin'].includes(page)) {
     if (page === 'Dashboard Analítico') add('analystDashboard', 'python', '/api/v1/dashboard/analyst');
     else add('dashboard', 'python', '/api/v1/dashboard/summary');
+    if (page === 'Visão Geral' && canReadPlantations) {
+      add('agronomy', 'python', '/api/v1/agronomy/plantations');
+    }
   }
   if (['Monitoramento', 'Dados Climáticos'].includes(page)) add('climate', 'python', climatePathForPeriod(period));
   if (page === 'Previsões') {
     add('forecast', 'python', '/api/v1/dashboard/forecast');
     add('climate', 'python', climatePathForPeriod(period));
+    if (canReadPlantations) add('agronomy', 'python', '/api/v1/agronomy/plantations');
   }
   if (page === 'Modelos Preditivos') {
     add('forecast', 'python', '/api/v1/models/forecast');
     add('modelStatus', 'python', '/api/v1/models/status');
-    if (permissions.has('plantations.manage') || permissions.has('plantations.read.all')) {
+    if (canReadPlantations) {
       add('agronomy', 'python', '/api/v1/agronomy/plantations');
     }
   }
