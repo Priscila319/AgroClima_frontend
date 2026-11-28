@@ -2,12 +2,17 @@ export const PERIOD_OPTIONS = ['Últimas 24 horas', 'Últimos 7 dias', 'Últimos
 export const DEFAULT_PERIOD = PERIOD_OPTIONS[0];
 const PERIOD_HOURS = { 'Últimas 24 horas': 24, 'Últimos 7 dias': 24 * 7, 'Últimos 30 dias': 24 * 30 };
 
-export function climatePathForPeriod(period) {
+export function periodWindowQuery(period) {
   const hours = PERIOD_HOURS[period];
-  if (!hours || hours === 24) return '/api/v1/climate/current';
+  if (!hours || hours === 24) return '';
   const end = new Date();
   const start = new Date(end.getTime() - hours * 3600 * 1000);
-  return `/api/v1/climate/history?start=${encodeURIComponent(start.toISOString())}&end=${encodeURIComponent(end.toISOString())}`;
+  return `?start=${encodeURIComponent(start.toISOString())}&end=${encodeURIComponent(end.toISOString())}`;
+}
+
+export function climatePathForPeriod(period) {
+  const query = periodWindowQuery(period);
+  return query ? `/api/v1/climate/history${query}` : '/api/v1/climate/current';
 }
 
 export function pointLabel(timestamp, spanMs) {
