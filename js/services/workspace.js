@@ -1,6 +1,6 @@
 import { apiGet } from './api.js';
 import { mergeUserIntoSnapshot, setRbacSnapshot, normalizeRbacSnapshot, snapshotForUser } from '../modules/access-control.js';
-import { climatePathForPeriod } from '../config/periods.js';
+import { climatePathForPeriod, periodWindowQuery } from '../config/periods.js';
 
 const ROLE_LABELS = { PRODUCER: 'Produtor/Exportador', ANALYST: 'Analista de Dados', ADMIN: 'Administrador' };
 
@@ -64,13 +64,18 @@ export async function loadPageData(page, roleKey, permissionKeys = [], period) {
   const key = String(roleKey || '').toUpperCase();
   const permissions = new Set(Array.isArray(permissionKeys) ? permissionKeys : []);
   const canReadPlantations = permissions.has('plantations.manage') || permissions.has('plantations.read.all');
+  const canReadMonitoring = permissions.has('monitoring.view');
+  const windowQuery = periodWindowQuery(period);
   const requests = [];
   const add = (name, service, path) => requests.push([name, () => apiGet(service, path)]);
   if (page === 'Histórico' || page === 'Relatórios') add('plantationHistory', 'java', '/api/plantations/history');
-  if (page === 'Relatórios' && key === 'ANALYST') add('analystDashboard', 'python', '/api/v1/dashboard/analyst');
+  if (page === 'Relatórios' && key === 'ANALYST') add('analystDashboard', 'python', `/api/v1/dashboard/analyst${windowQuery}`);
   if (['Visão Geral', 'Dashboard Analítico', 'Dashboard Admin'].includes(page)) {
-    if (page === 'Dashboard Analítico') add('analystDashboard', 'python', '/api/v1/dashboard/analyst');
+    if (page === 'Dashboard Analítico') add('analystDashboard', 'python', `/api/v1/dashboard/analyst${windowQuery}`);
     else add('dashboard', 'python', '/api/v1/dashboard/summary');
+    if (page === 'Visão Geral' && canReadMonitoring && windowQuery) {
+      add('climate', 'python', climatePathForPeriod(period));
+    }
     if (page === 'Visão Geral' && canReadPlantations) {
       add('agronomy', 'python', '/api/v1/agronomy/plantations');
     }
@@ -96,8 +101,8 @@ export async function loadPageData(page, roleKey, permissionKeys = [], period) {
   }
   if (['Comparação', 'Análise Comparativa'].includes(page)) add('comparison', 'python', '/api/v1/dashboard/comparison');
   if (page === 'Qualidade dos Dados') {
-    add('quality', 'python', '/api/v1/dashboard/quality');
-    add('climate', 'python', '/api/v1/climate/current');
+    add('quality', 'python', `/api/v1/dashboard/quality${windowQuery}`);
+    add('climate', 'python', climatePathForPeriod(period));
   }
   if (page === 'Integrações' && key === 'ADMIN') {
     add('integrationStatus', 'python', '/api/v1/integrations/thingspeak/status');
