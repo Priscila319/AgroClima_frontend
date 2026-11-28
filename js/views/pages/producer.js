@@ -196,8 +196,8 @@ function marketOverviewCard() {
   );
 }
 
-export function overviewPage({ variety, dashboard, agronomy }) {
-  const climate = dashboard?.climate;
+export function overviewPage({ variety, period, dashboard, climate: periodClimate, agronomy }) {
+  const climate = (period && period !== 'Últimas 24 horas' && periodClimate) ? periodClimate : dashboard?.climate;
   const plantations = dashboard?.plantations || {};
   const temperature = metricFor(climate, 'temperature');
   const humidity = metricFor(climate, 'humidity');
@@ -216,7 +216,7 @@ export function overviewPage({ variety, dashboard, agronomy }) {
       { icon: 'truck', label: 'Previsão de colheita', value: harvestMetric.value, meta: harvestMetric.meta, tone: harvestMetric.tone },
       { icon: 'warning', label: 'Leituras climáticas', value: climate?.records ?? 0, meta: climate?.available ? 'Registros reais recebidos' : 'Sem leituras no período', tone: climate?.available ? 'green' : 'orange' },
     ]),
-    html`<div class="grid-2">${chartCard({ title: 'Temperatura nas últimas 24 horas', subtitle: 'Leituras recebidas pela API · °C', legend: temperature ? formatMetric(temperature) : 'Sem leitura', content: lineChart({ data: tempSeries.values, labels: tempSeries.labels }) })}${chartCard({ title: 'Umidade do ar', subtitle: 'Leituras recebidas pela API · %', legend: humidity ? formatMetric(humidity) : 'Sem leitura', content: lineChart({ data: humiditySeries.values, labels: humiditySeries.labels, color: 'blue' }) })}</div>`,
+    html`<div class="grid-2">${chartCard({ title: `Temperatura (${period || 'Últimas 24 horas'})`, subtitle: 'Leituras recebidas pela API · °C', legend: temperature ? formatMetric(temperature) : 'Sem leitura', content: lineChart({ data: tempSeries.values, labels: tempSeries.labels }) })}${chartCard({ title: 'Umidade do ar', subtitle: 'Leituras recebidas pela API · %', legend: humidity ? formatMetric(humidity) : 'Sem leitura', content: lineChart({ data: humiditySeries.values, labels: humiditySeries.labels, color: 'blue' }) })}</div>`,
     html`<div class="recommend-grid">${harvestRecommendationCard(agronomy, variety)}${marketOverviewCard()}</div>`,
     comparisonTable({ plantations: [], varieties: VARIETIES, comparison }),
   );
